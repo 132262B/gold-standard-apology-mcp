@@ -27,6 +27,7 @@ ENV PYTHONPATH=/app/packages
 
 # Copy application code
 COPY --chmod=644 mcp_server.py .
+COPY --chmod=644 prompt.md .
 COPY --chmod=644 .env* ./
 
 # Lambda Web Adapter configuration
