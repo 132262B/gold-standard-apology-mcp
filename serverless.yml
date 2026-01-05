@@ -1,0 +1,40 @@
+service: gold-standard-apology-mcp
+
+provider:
+  name: aws
+  region: ap-northeast-2
+  stage: prod
+  architecture: x86_64
+  memorySize: 512
+  timeout: 60
+  environment:
+    # Add your environment variables here
+    # MY_API_KEY: ${env:MY_API_KEY}
+  ecr:
+    images:
+      mcp-server:
+        path: ./
+        file: Dockerfile
+
+functions:
+  mcpServer:
+    image:
+      name: mcp-server
+    events:
+      - httpApi:
+          path: /{proxy+}
+          method: ANY
+      - httpApi:
+          path: /
+          method: ANY
+    url:
+      invokeMode: RESPONSE_STREAM
+
+package:
+  patterns:
+    - "!.venv/**"
+    - "!.git/**"
+    - "!node_modules/**"
+    - "!*.md"
+    - "!uv.lock"
+    - "!.python-version"
