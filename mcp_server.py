@@ -1,10 +1,4 @@
-"""FastMCP Server Template for AWS Lambda.
-
-This is a boilerplate for creating MCP servers using FastMCP 2.0
-with AWS Lambda deployment via Lambda Web Adapter.
-"""
-
-import os
+from pathlib import Path
 from typing import Annotated
 
 from dotenv import load_dotenv
@@ -12,71 +6,43 @@ from fastmcp import FastMCP
 
 load_dotenv()
 
-# Create FastMCP server (stateless for AWS Lambda)
+PROMPT_TEMPLATE = (Path(__file__).parent / "prompt.md").read_text(encoding="utf-8")
+
 mcp = FastMCP(
-    name="my-mcp-server",
-    instructions="Your MCP server description here.",
+    name="gold-standard-apology",
+    instructions="""이 MCP 서버는 사과문 작성을 도와줍니다.""",
     stateless_http=True,
 )
 
-
-# Example Tool 1: Simple greeting
 @mcp.tool()
-async def greet(
-    name: Annotated[str, "Name to greet"],
+async def get_apology_system_prompt(
+    situation: Annotated[str, "사과해야 하는 상황에 대한 설명 (무슨 일이 있었는지)"],
+    relationship: Annotated[str, "사과 대상과의 관계 (예: 연인, 친구, 부모님, 직장 상사, 고객 등)"],
+    severity: Annotated[str, "상황의 심각도 (경미, 보통, 심각)"] = "보통",
 ) -> dict:
-    """Greet a user by name."""
-    return {"message": f"Hello, {name}!"}
+    """상황에 맞는 정석 사과문 작성을 위한 system prompt를 생성합니다.
 
+    이 도구는 사용자가 사과문을 작성해야 할 때 호출됩니다.
+    반환된 system_prompt를 LLM에게 제공하면, 해당 상황에 맞는
+    진정성 있고 효과적인 사과문을 작성하는 데 도움을 받을 수 있습니다.
+    """
 
-# Example Tool 2: Calculator
-@mcp.tool()
-async def calculate(
-    operation: Annotated[str, "Operation: add, subtract, multiply, divide"],
-    a: Annotated[float, "First number"],
-    b: Annotated[float, "Second number"],
-) -> dict:
-    """Perform basic arithmetic operations."""
-    operations = {
-        "add": lambda x, y: x + y,
-        "subtract": lambda x, y: x - y,
-        "multiply": lambda x, y: x * y,
-        "divide": lambda x, y: x / y if y != 0 else None,
+    severity_guidance = {
+        "경미": "간결하면서도 진심이 담긴 사과가 적절합니다.",
+        "보통": "구체적인 반성과 함께 개선 의지를 보여주는 사과가 필요합니다.",
+        "심각": "깊은 반성, 구체적인 책임 인정, 그리고 명확한 재발 방지 대책을 포함해야 합니다.",
     }
 
-    if operation not in operations:
-        return {"error": f"Unknown operation: {operation}"}
+    system_prompt = PROMPT_TEMPLATE.format(
+        situation=situation,
+        relationship=relationship,
+        severity=severity,
+        severity_guidance=severity_guidance.get(severity, severity_guidance["보통"]),
+    )
 
-    result = operations[operation](a, b)
-    if result is None:
-        return {"error": "Division by zero"}
-
-    return {"result": result, "operation": f"{a} {operation} {b}"}
-
-
-# Example Tool 3: Echo with options
-@mcp.tool()
-async def echo(
-    message: Annotated[str, "Message to echo"],
-    uppercase: Annotated[bool, "Convert to uppercase"] = False,
-    repeat: Annotated[int, "Number of times to repeat"] = 1,
-) -> dict:
-    """Echo a message with optional transformations."""
-    result = message
-    if uppercase:
-        result = result.upper()
-
-    return {"echo": " ".join([result] * repeat)}
-
-
-# Example Tool 4: Environment info
-@mcp.tool()
-async def get_env_info() -> dict:
-    """Get environment information (for debugging)."""
     return {
-        "python_version": os.popen("python --version").read().strip(),
-        "env_vars_count": len(os.environ),
-        "is_lambda": "AWS_LAMBDA_FUNCTION_NAME" in os.environ,
+        "system_prompt": system_prompt,
+        "usage_guide": "위 가이드라인을 참고하여 상황에 맞는 진정성 있는 사과문을 작성해 주세요."
     }
 
 
@@ -89,10 +55,8 @@ def create_app():
     async def health(request):
         return JSONResponse({"status": "ok"})
 
-    # Get FastMCP's ASGI app
     mcp_app = mcp.http_app(path="/mcp")
 
-    # Create main app with health check and MCP
     app = Starlette(
         routes=[
             Route("/health", health),
