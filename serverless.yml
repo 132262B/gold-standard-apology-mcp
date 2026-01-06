@@ -1,4 +1,4 @@
-service: gold-standard-apology-mcp
+service: kwon-decision
 
 provider:
   name: aws
