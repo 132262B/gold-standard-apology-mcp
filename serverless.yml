@@ -1,4 +1,4 @@
-service: kwon-decision
+service: horseplay-societ-mcp
 
 provider:
   name: aws
